@@ -30,6 +30,26 @@ _EXECUTOR = concurrent.futures.ThreadPoolExecutor(max_workers=4, thread_name_pre
 _DIAG_LOCK = threading.Lock()
 
 
+def map_adapter_error(res: dict, content: str | None) -> str | None:
+    """Map the engine result to a harness error.
+
+    The engine's completeness.level is authoritative. A blocked page with
+    wall copy in markdown+text is NOT a successful scrape; reporting it as
+    one was the largest false-success class in the 100-URL slice (row 201,
+    Amazon bot wall, engine blocked, harness F1 0.0482 as success).
+    """
+    error = res.get("error")
+    comp = res.get("completeness") or {}
+    if not error and str(comp.get("level")) == "blocked":
+        reason = comp.get("blocked_by") or res.get("failure_class") or "unknown"
+        return f"engine_blocked: {reason}"
+    if not content and not error:
+        fc = res.get("failure_class")
+        missing = ";".join(comp.get("known_missing") or [])
+        return f"no_text: level={comp.get('level')}; failure_class={fc}; {missing}".rstrip("; ")
+    return error
+
+
 class HermesCrawlScraper(Scraper):
     def __init__(self):
         if CRAWL_REPO not in sys.path:
@@ -116,12 +136,7 @@ class HermesCrawlScraper(Scraper):
         if status is None and content:
             status = 200  # text obtained => the fetch succeeded; status was not propagated
 
-        error = res.get("error")
-        if not content and not error:
-            comp = res.get("completeness") or {}
-            fc = res.get("failure_class")
-            missing = ";".join(comp.get("known_missing") or [])
-            error = f"no_text: level={comp.get('level')}; failure_class={fc}; {missing}".rstrip("; ")
+        error = map_adapter_error(res, content)
         if status is None:
             status = 500  # schema requires int; engine produced nothing
 
