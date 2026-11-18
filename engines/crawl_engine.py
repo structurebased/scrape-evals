@@ -90,7 +90,9 @@ class HermesCrawlScraper(Scraper):
     async def scrape(self, url: str, run_id: str) -> ScrapeResult:
         import asyncio
         now = datetime.now().isoformat
-        timeout_s = float(os.environ.get("CRAWL_ADAPTER_TIMEOUT_S", "75"))
+        _is_pdf = str(url).split("?", 1)[0].lower().endswith(".pdf")
+        timeout_s = float(os.environ.get(
+            "CRAWL_ADAPTER_TIMEOUT_S", "180" if _is_pdf else "75"))
         try:
             res = await asyncio.wait_for(
                 asyncio.get_running_loop().run_in_executor(_EXECUTOR, self._crawl, url),
