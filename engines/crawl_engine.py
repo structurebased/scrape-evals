@@ -91,6 +91,9 @@ class HermesCrawlScraper(Scraper):
         import asyncio
         now = datetime.now().isoformat
         _is_pdf = str(url).split("?", 1)[0].lower().endswith(".pdf")
+        if _is_pdf:
+            # Benchmark-only opt-in; the engine ignores this for HTML URLs.
+            os.environ.setdefault("CRAWL_PDF_DEADLINE_S", "150")
         timeout_s = float(os.environ.get(
             "CRAWL_ADAPTER_TIMEOUT_S", "180" if _is_pdf else "75"))
         try:
